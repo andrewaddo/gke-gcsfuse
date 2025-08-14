@@ -18,13 +18,13 @@ spec:
                 gke-gcsfuse/volumes: "true"
       preconditions:
         any:
-        - key: "{{ request.object.metadata.generateName }}"
+        - key: "{{ request.object.metadata.name }}"
           operator: AnyIn
           value: 
-          - "*shortlifejob*"      
+          - "*shortlifejob*"
       mutate:
         patchStrategicMerge:
           spec:
             initContainers:
               - name: gke-gcsfuse-sidecar
-                image: gcr.io/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.8.9-gke.2   
+                image: gcr.io/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.8.9-gke.2
