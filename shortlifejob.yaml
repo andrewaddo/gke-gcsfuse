@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: shortlifejob
+  namespace: default
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      annotations:
+        gke-gcsfuse/volumes: "true"
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: prewarm-inodes
+          image: busybox
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "[INFO] Prewarming inodes via stat..."
+              find /content -exec stat {} \; || true
+              mv /content/link1.txt /content/renamed1.txt
+          volumeMounts:
+            - name: gcs
+              mountPath: /content
+      volumes:
+        - name: gcs
+          persistentVolumeClaim:
+            claimName: gcsfuse-debugger-pvc
+      restartPolicy: Never

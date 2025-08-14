@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: patch-gcsfuse-sidecar-image
+spec:
+  background: false
+  mutateExistingOnPolicyUpdate: false
+  rules:
+    - name: kyverno-cp-job
+      match:
+        all:
+          - resources:
+              kinds:
+                - Job
+              namespaces:
+                - default
+              annotations:
+                gke-gcsfuse/volumes: "true"
+      preconditions:
+        any:
+        - key: "{{ request.object.metadata.generateName }}"
+          operator: AnyIn
+          value: 
+          - "*shortlifejob*"      
+      mutate:
+        patchStrategicMerge:
+          spec:
+            initContainers:
+              - name: gcsfuse-prewarm
+                image: busybox
+                command: ["/bin/sh", "-c"]
+                args:
+                  - |
+                    echo "[INFO] Prewarming inodes via stat..."
+                    find /content -type f -exec stat {} \; || true
+                volumeMounts:
+                  - name: gcs
+                    mountPath: /content
+              - name: gke-gcsfuse-sidecar
+                image: gcr.io/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.8.9-gke.2   
+            volumes:
+              - name: gcs
+                persistentVolumeClaim:
+                  claimName: gcsfuse-debugger-pvc

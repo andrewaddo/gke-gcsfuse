@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: patch-gcsfuse-sidecar-image
+spec:
+  background: false
+  mutateExistingOnPolicyUpdate: false
+  rules:
+    - name: patch-gcsfuse-initcontainer-image
+      match:
+        all:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - default
+              annotations:
+                gke-gcsfuse/volumes: "true"
+      preconditions:
+        any:
+        - key: "{{ request.object.metadata.generateName }}"
+          operator: AnyIn
+          value: 
+          - "*shortlifejob*"
+      mutate:
+        patchStrategicMerge:
+          spec:
+            initContainers:
+              - name: gke-gcsfuse-sidecar
+                image: gcr.io/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.8.9-gke.2

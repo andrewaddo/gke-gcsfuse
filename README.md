@@ -61,3 +61,15 @@ kubectl exec -it gcsfuse-debugger -- /bin/bash
 # root@gcsfuse-debugger:/content# exit
 # exit
 ```
+
+Kyverno
+
+```bash
+kubectl create -f https://github.com/kyverno/kyverno/releases/download/v1.12.5/install.yaml
+  
+kubectl apply -f Kyverno_gcssidecard_policy.yaml
+
+  Error: failed to reserve container name "gcsfuse-prewarm_shortlifejob-dtg9v_default_dde4ed2d-6413-4ad9-b13b-3fcaf7f6c711_0": name "gcsfuse-prewarm_shortlifejob-dtg9v_default_dde4ed2d-6413-4ad9-b13b-3fcaf7f6c711_0" is reserved for "a9b5df6e4529814096e15bb875a1acbcfe737c628ebd2c1ad1e00a42eef791d0"
+
+  --> look like it clashes with the auto-injection done by Autopilot
+```
