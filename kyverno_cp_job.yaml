@@ -26,19 +26,5 @@ spec:
         patchStrategicMerge:
           spec:
             initContainers:
-              - name: gcsfuse-prewarm
-                image: busybox
-                command: ["/bin/sh", "-c"]
-                args:
-                  - |
-                    echo "[INFO] Prewarming inodes via stat..."
-                    find /content -type f -exec stat {} \; || true
-                volumeMounts:
-                  - name: gcs
-                    mountPath: /content
               - name: gke-gcsfuse-sidecar
                 image: gcr.io/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.8.9-gke.2   
-            volumes:
-              - name: gcs
-                persistentVolumeClaim:
-                  claimName: gcsfuse-debugger-pvc
