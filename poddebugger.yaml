@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    gke-gcsfuse/volumes: "true"
+  name: gcsfuse-debugger
+  namespace: default
+spec:
+  serviceAccountName: default
+  initContainers:
+    - name: prewarm-inodes
+      image: busybox
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          echo "[INFO] Prewarming inodes via stat..."
+          find /content -type f -exec stat {} \; || true
+      volumeMounts:
+        - name: gcs
+          mountPath: /content
+  containers:
+    - name: gke-gcsfuse-sidecar
+      image: gcr.io/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.8.9-gke.2
+    - name: shell
+      image: ubuntu
+      command: ["/bin/bash"]
+      args: ["-c", "sleep infinity"]
+      volumeMounts:
+        - name: gcs
+          mountPath: /content
+  volumes:
+    - name: gcs
+      persistentVolumeClaim:
+        claimName: gcsfuse-debugger-pvc
+  restartPolicy: Never
