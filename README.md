@@ -1,5 +1,11 @@
 # gke-gcsfuse
 
+## Findings
+
+```logs
+1. TODO
+```
+
 Use Autopilot cluster
 ```bash
 $ gcloud container clusters get-credentials ap-cluster-1 --location asia-southeast1
@@ -79,7 +85,16 @@ Load test
 ```bash
 sed -e 's/value: "1"/value: "0"/g' -e 's/name: shortlifejob-$(JOB_INDEX)/name: shortlifejob-0/g' shortlifejob.yaml | kubectl apply -f -
 
-./loadtest.sh 100
+gsutil rm gs://addo-gke-gcsfuse/*
+kubectl delete ClusterPolicy --all
+kubectl delete jobs --all
+
+kubectl apply -f kyverno_cp_job.yaml
+./loadtest.sh 1
+kubectl apply -f kyverno_cp_pod.yaml
+./loadtest.sh 1
+
+./loadtest.sh 1000
 
 # output
 ducdo@control-tower-25:~/workspaces/gke-gcsfuse
@@ -88,4 +103,5 @@ $ gsutil ls gs://addo-gke-gcsfuse | grep target | wc -l
 ducdo@control-tower-25:~/workspaces/gke-gcsfuse
 $ gsutil ls gs://addo-gke-gcsfuse | grep renamed | wc -l
 100
+
 ```

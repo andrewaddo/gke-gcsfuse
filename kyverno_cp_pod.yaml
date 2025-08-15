@@ -1,12 +1,12 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: patch-gcsfuse-sidecar-image
+  name: kyverno-cp-pod
 spec:
   background: false
   mutateExistingOnPolicyUpdate: false
   rules:
-    - name: patch-gcsfuse-initcontainer-image
+    - name: shorlifejob-pod
       match:
         all:
           - resources:

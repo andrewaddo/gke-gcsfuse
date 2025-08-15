@@ -1,30 +1,32 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: patch-gcsfuse-sidecar-image
+  name: kyverno-cp-job
 spec:
   background: false
   mutateExistingOnPolicyUpdate: false
   rules:
-    - name: kyverno-cp-job
+    - name: shorlifejob-job
       match:
         all:
           - resources:
               kinds:
                 - Job
+              names:
+                - "shortlifejob*"
               namespaces:
                 - default
               annotations:
                 gke-gcsfuse/volumes: "true"
-      preconditions:
-        any:
-        - key: "{{ request.object.metadata.name }}"
-          operator: AnyIn
-          value: 
-          - "*shortlifejob*"
       mutate:
-        patchStrategicMerge:
-          spec:
-            initContainers:
-              - name: gke-gcsfuse-sidecar
-                image: gcr.io/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.8.9-gke.2
+        patchesJson6902: |-
+          - op: add
+            path: /spec/template/spec/initContainers
+            value:
+            - name: gke-gcsfuse-sidecar
+              image: gcr.io/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.8.9-gke.2
+              resources:
+                requests:
+                  ephemeral-storage: "1Gi"
+                limits:
+                  ephemeral-storage: "1Gi"
