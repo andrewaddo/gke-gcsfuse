@@ -73,3 +73,19 @@ kubectl apply -f Kyverno_gcssidecard_policy.yaml
 
   --> look like it clashes with the auto-injection done by Autopilot
 ```
+
+Load test
+
+```bash
+sed -e 's/value: "1"/value: "0"/g' -e 's/name: shortlifejob-$(JOB_INDEX)/name: shortlifejob-0/g' shortlifejob.yaml | kubectl apply -f -
+
+./loadtest.sh 100
+
+# output
+ducdo@control-tower-25:~/workspaces/gke-gcsfuse
+$ gsutil ls gs://addo-gke-gcsfuse | grep target | wc -l
+100
+ducdo@control-tower-25:~/workspaces/gke-gcsfuse
+$ gsutil ls gs://addo-gke-gcsfuse | grep renamed | wc -l
+100
+```

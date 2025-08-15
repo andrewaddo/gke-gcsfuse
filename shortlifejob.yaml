@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: shortlifejob
+  name: shortlifejob-$(JOB_INDEX)
   namespace: default
 spec:
   backoffLimit: 1
@@ -15,11 +15,16 @@ spec:
         - name: prewarm-inodes
           image: busybox
           command: ["/bin/sh", "-c"]
+          env:
+            - name: JOB_INDEX
+              value: "1"
           args:
             - |
-              echo "[INFO] Prewarming inodes via stat..."
-              find /content -exec stat {} \; || true
-              mv /content/link1.txt /content/renamed1.txt
+              echo "[INFO] Prewarming inodes via stat for job $(JOB_INDEX)..."
+              cd /content        
+              echo "hello" > target-$(JOB_INDEX).txt
+              ln -s target-$(JOB_INDEX).txt link-$(JOB_INDEX).txt
+              mv link-$(JOB_INDEX).txt renamed-$(JOB_INDEX).txt
           volumeMounts:
             - name: gcs
               mountPath: /content
