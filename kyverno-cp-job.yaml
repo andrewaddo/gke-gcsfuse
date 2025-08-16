@@ -6,14 +6,14 @@ spec:
   background: false
   mutateExistingOnPolicyUpdate: false
   rules:
-    - name: shorlifejob-job
+    - name: samplejob-job
       match:
         all:
           - resources:
               kinds:
                 - Job
               names:
-                - "shortlifejob*"
+                - "samplejob*"
               namespaces:
                 - default
               annotations:

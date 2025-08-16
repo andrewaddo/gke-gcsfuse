@@ -6,7 +6,7 @@ spec:
   background: false
   mutateExistingOnPolicyUpdate: false
   rules:
-    - name: shorlifejob-pod
+    - name: samplejob-pod
       match:
         all:
           - resources:
@@ -21,7 +21,7 @@ spec:
         - key: "{{ request.object.metadata.generateName }}"
           operator: AnyIn
           value: 
-          - "*shortlifejob*"
+          - "*samplejob*"
       mutate:
         patchStrategicMerge:
           spec:
