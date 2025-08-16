@@ -67,11 +67,6 @@ The policy is defined in `kyverno-cp-pod.yaml`.
 
 This section contains instructions to run a load test.
 ```bash
-# Clean up before the test
-gsutil rm gs://addo-gke-gcsfuse/*
-kubectl delete ClusterPolicy --all
-kubectl delete jobs --all
-
 # Test with a single job
 kubectl apply -f kyverno-cp-pod.yaml
 sed -e 's/value: "1"/value: "0"/g' -e 's/name: samplejob-$(JOB_INDEX)/name: samplejob-0/g' samplejob.yaml | kubectl apply -f -
@@ -129,6 +124,7 @@ gsutil ls gs://addo-gke-gcsfuse | grep renamed | wc -l
 gsutil rm gs://addo-gke-gcsfuse/*
 kubectl delete ClusterPolicy --all
 kubectl delete jobs --all
+kubectl delete pods --all
 ```
 
 ## Notes
@@ -146,3 +142,15 @@ resources:
 For policy at the pod level, the `ephemeral-storage` is automatically generated so there is no need to include these parameters explicitly.
 
 2. For the policy at the pod level, the `initContainers` object presents at the pod, so the mechanism to patch through merging with `patchStrategicMerge` works. For the policy at the job leve, the `initContainers` would not be present for patching, so `patchesJson6902` is used instead.
+
+## History log
+
+```bash
+gcloud container clusters get-credentials ap-cluster-1 --location asia-southeast1
+```
+
+## Issues log
+
+1. "MountVolume.MountDevice failed for volume "gcsfuse-debugger-pv" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name gcsfuse.csi.storage.gke.io not found in the list of registered CSI drivers"
+
+The intermittent error is a race condition. In Autopilot, when a new node is provisioned for your pod, the GCS FUSE CSI driver, a DaemonSet, also needs to start on that node. If your pod starts before the driver registers with the kubelet, the mount fails. The issue resolves on its own because the driver eventually starts, and the pod creation is retried successfully.
