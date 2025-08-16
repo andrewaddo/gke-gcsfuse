@@ -1,6 +1,6 @@
 # gke-gcsfuse
 
-This repository contains files to test and reproduce issues with GCS FUSE CSI driver on GKE Autopilot.
+This repository contains files to test, reproduce, and solve the issue with GCS FUSE CSI driver (1.14) on GKE Autopilot (1.32).
 
 ## 1. Test Autopilot 1.32 and GCS Fuse 1.14 auto-injection
 
@@ -19,7 +19,7 @@ It also shows how to reproduce a bug related to `mv` command on a symbolic link.
     ```bash
     kubectl exec -it gcsfuse-autopilot-pod -- /bin/sh
     ```
-    Inside the pod, run the following commands:
+    Inside the pod, run the following commands and observe the outputs:
     ```bash
     # cd /content
     # echo "hello" > target1.txt
@@ -45,7 +45,7 @@ This section describes how to override the auto-injected GCS FUSE CSI driver wit
     ```bash
     kubectl exec -it gcsfuse-override-pod -- /bin/bash
     ```
-    Inside the pod, run the following commands:
+    Inside the pod, run the following commands and observe the outputs:
     ```bash
     # cd /content
     # echo "hello" > target2.txt
@@ -65,7 +65,21 @@ This approach aims to avoid the auto-injection of the default GCS FUSE driver by
 
 The policy is defined in `kyverno-cp-pod.yaml`.
 
-**Note:** This approach was not fully tested.
+This section contains instructions to run a load test.
+```bash
+# Clean up before the test
+gsutil rm gs://addo-gke-gcsfuse/*
+kubectl delete ClusterPolicy --all
+kubectl delete jobs --all
+
+# Test with a single job
+kubectl apply -f kyverno-cp-pod.yaml
+sed -e 's/value: "1"/value: "0"/g' -e 's/name: samplejob-$(JOB_INDEX)/name: samplejob-0/g' samplejob.yaml | kubectl apply -f -
+
+# Validate that the file is renamed correctly
+gsutil ls gs://addo-gke-gcsfuse | grep target | wc -l
+gsutil ls gs://addo-gke-gcsfuse | grep renamed | wc -l
+```
 
 ## 4. Test another approach to use kyverno-cp-job to patch the gcsfuse drive the job is created
 
@@ -74,26 +88,61 @@ This approach is similar to the previous one, but it targets jobs instead of pod
 
 The policy is defined in `kyverno-cp-job.yaml`.
 
-**Note:** This approach was not fully tested.
-The following error was observed, which indicates a clash with the auto-injection mechanism:
-```
-Error: failed to reserve container name "gcsfuse-prewarm_samplejob-dtg9v_default_dde4ed2d-6413-4ad9-b13b-3fcaf7f6c711_0": name "gcsfuse-prewarm_samplejob-dtg9v_default_dde4ed2d-6413-4ad9-b13b-3fcaf7f6c711_0" is reserved for "a9b5df6e4529814096e15bb875a1acbcfe737c628ebd2c1ad1e00a42eef791d0"
+```bash
+# Test with a single job
+kubectl apply -f kyverno-cp-job.yaml
+sed -e 's/value: "1"/value: "0"/g' -e 's/name: samplejob-$(JOB_INDEX)/name: samplejob-0/g' samplejob.yaml | kubectl apply -f -
+
+# Validate that the file is renamed correctly
+gsutil ls gs://addo-gke-gcsfuse | grep target | wc -l
+gsutil ls gs://addo-gke-gcsfuse | grep renamed | wc -l
 ```
 
 ## Load test
 
 This section contains instructions to run a load test.
-```bash
-sed -e 's/value: "1"/value: "0"/g' -e 's/name: samplejob-$(JOB_INDEX)/name: samplejob-0/g' samplejob.yaml | kubectl apply -f -
 
+### Pod level policy
+
+```bash
+kubectl apply -f kyverno-cp-pod.yaml
+./loadtest.sh 100
+# Validate that the file is renamed correctly
+gsutil ls gs://addo-gke-gcsfuse | grep target | wc -l
+gsutil ls gs://addo-gke-gcsfuse | grep renamed | wc -l
+```
+
+### Job level policy
+
+```bash
+kubectl apply -f kyverno-cp-job.yaml
+./loadtest.sh 100
+# Validate that the file is renamed correctly
+gsutil ls gs://addo-gke-gcsfuse | grep target | wc -l
+gsutil ls gs://addo-gke-gcsfuse | grep renamed | wc -l
+```
+
+## References
+
+```bash
+# Clean up before the test
 gsutil rm gs://addo-gke-gcsfuse/*
 kubectl delete ClusterPolicy --all
 kubectl delete jobs --all
-
-kubectl apply -f kyverno-cp-job.yaml
-./loadtest.sh 1
-kubectl apply -f kyverno-cp-pod.yaml
-./loadtest.sh 1
-
-./loadtest.sh 1000
 ```
+
+## Notes
+
+1. Autopilot cluster warden requires the `ephemeral-storage` to be defined. This is not required in Standard cluster. For the policy at the job level, the parameters are required
+
+```bash
+resources:
+  requests:
+    ephemeral-storage: "1Gi"
+  limits:
+    ephemeral-storage: "1Gi"
+```
+
+For policy at the pod level, the `ephemeral-storage` is automatically generated so there is no need to include these parameters explicitly.
+
+2. For the policy at the pod level, the `initContainers` object presents at the pod, so the mechanism to patch through merging with `patchStrategicMerge` works. For the policy at the job leve, the `initContainers` would not be present for patching, so `patchesJson6902` is used instead.
