@@ -1,87 +1,88 @@
 # gke-gcsfuse
 
-## Findings
+This repository contains files to test and reproduce issues with GCS FUSE CSI driver on GKE Autopilot.
 
-```logs
-1. TODO
+## 1. Test Autopilot 1.32 and GCS Fuse 1.14 auto-injection
+
+This section describes how to test the auto-injection of GCS FUSE CSI driver v1.14.x on a GKE Autopilot cluster v1.32.
+It also shows how to reproduce a bug related to `mv` command on a symbolic link.
+
+### Steps:
+
+1.  **Create a pod with a GCS FUSE volume:**
+    ```bash
+    kubectl apply -f autopilot-1.32-gcsfuse-1.14-pod.yaml
+    ```
+    The pod `gcsfuse-autopilot-pod` will be created with the GCS FUSE CSI driver v1.14.x automatically injected by GKE Autopilot.
+
+2.  **Exec into the pod and reproduce the bug:**
+    ```bash
+    kubectl exec -it gcsfuse-autopilot-pod -- /bin/sh
+    ```
+    Inside the pod, run the following commands:
+    ```bash
+    # cd /content
+    # echo "hello" > target1.txt
+    # ln -s target1.txt link1.txt
+    # mv link1.txt renamed1.txt
+    mv: can't rename 'link1.txt': Input/output error
+    ```
+    The `mv` command fails with an "Input/output error".
+
+## 2. Test overriding with GCS Fuse 1.8.9
+
+This section describes how to override the auto-injected GCS FUSE CSI driver with a specific version (v1.8.9) to validate that the bug is resolved.
+
+### Steps:
+
+1.  **Create a pod with a specific GCS FUSE version:**
+    ```bash
+    kubectl apply -f override-gcsfuse-1.8.9-pod.yaml
+    ```
+    The pod `gcsfuse-override-pod` will be created with the GCS FUSE CSI driver v1.8.9.
+
+2.  **Exec into the pod and validate the fix:**
+    ```bash
+    kubectl exec -it gcsfuse-override-pod -- /bin/bash
+    ```
+    Inside the pod, run the following commands:
+    ```bash
+    # cd /content
+    # echo "hello" > target2.txt
+    # ln -s target2.txt link2.txt
+    # mv link2.txt renamed2.txt
+    # ls
+    link1.txt  renamed2.txt  target1.txt  target2.txt
+    # cat renamed2.txt
+    hello
+    ```
+    The `mv` command works as expected.
+
+## 3. Test a more generic approach to use kyverno-cp-pod to patch the gcsfuse drive when the pod is created
+
+This section describes an approach to use a Kyverno ClusterPolicy to patch the GCS FUSE driver when a pod is created.
+This approach aims to avoid the auto-injection of the default GCS FUSE driver by GKE.
+
+The policy is defined in `kyverno-cp-pod.yaml`.
+
+**Note:** This approach was not fully tested.
+
+## 4. Test another approach to use kyverno-cp-job to patch the gcsfuse drive the job is created
+
+This section describes another approach to use a Kyverno ClusterPolicy to patch the GCS FUSE driver when a job is created.
+This approach is similar to the previous one, but it targets jobs instead of pods.
+
+The policy is defined in `kyverno-cp-job.yaml`.
+
+**Note:** This approach was not fully tested.
+The following error was observed, which indicates a clash with the auto-injection mechanism:
+```
+Error: failed to reserve container name "gcsfuse-prewarm_samplejob-dtg9v_default_dde4ed2d-6413-4ad9-b13b-3fcaf7f6c711_0": name "gcsfuse-prewarm_samplejob-dtg9v_default_dde4ed2d-6413-4ad9-b13b-3fcaf7f6c711_0" is reserved for "a9b5df6e4529814096e15bb875a1acbcfe737c628ebd2c1ad1e00a42eef791d0"
 ```
 
-Use Autopilot cluster
-```bash
-$ gcloud container clusters get-credentials ap-cluster-1 --location asia-southeast1
+## Load test
 
-gcloud storage buckets add-iam-policy-binding gs://addo-gke-gcsfuse \
-  --member "principal://iam.googleapis.com/projects/827859227929/locations/global/workloadIdentityPools/addo-argolis-demo.svc.id.goog/subject/ns/default/sa/default" \
-  --role "roles/storage.objectUser"
-
-## autopilot-pod
-Image:           asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.14.3-gke.0@sha256:b4e420985f54714e5952ece5da15f19e8b11f47e18cc6fe0a03995bc6a0ae7d3
-
-## override-gcsfuse-pod
-Image:           gcr.io/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.8.9-gke.2
-```
-
-Debug
-
-```bash
-gcloud container clusters describe ap-cluster-1 \
-    --location=asia-southeast1 \
-    --project=addo-argolis-demo \
-    --format="value(addonsConfig.gcsFuseCsiDriverConfig.enabled)"
-
-gcloud container clusters update ap-cluster-1 \
-    --update-addons GcsFuseCsiDriver=ENABLED \
-    --location=asia-southeast1
-
-kubectl exec -it gcsfuse-autopilot-pod -- /bin/sh
-
-# ducdo@control-tower-25:~/workspaces/gke-gcsfuse
-# $ kubectl exec -it gcsfuse-autopilot-pod -- /bin/sh
-# Defaulted container "prewarm-inodes" out of: prewarm-inodes, gke-gcsfuse-sidecar (init)
-# / # ls
-# bin      content  dev      etc      home     lib      lib64    proc     root     sys      tmp      usr      var
-# / # cd content/
-# /content # echo "hello" > target1.txt
-# /content # ln -s target1.txt link1.txt
-# /content # mv link1.txt renamed1.txt
-# mv: can't rename 'link1.txt': Input/output error
-# /content # exit
-
-kubectl exec -it gcsfuse-override-pod -- /bin/bash
-
-# ducdo@control-tower-25:~/workspaces/gke-gcsfuse
-# $ kubectl exec -it gcsfuse-override-pod -- /bin/bash
-# Defaulted container "shell" out of: shell, gke-gcsfuse-sidecar (init), prewarm-inodes (init)
-# root@gcsfuse-override-pod:/# ls 
-# bin  boot  content  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var
-# root@gcsfuse-override-pod:/# cd content/
-# root@gcsfuse-override-pod:/content# echo "hello" > target2.txt
-# root@gcsfuse-override-pod:/content# ln -s target2.txt link2.txt
-# root@gcsfuse-override-pod:/content# mv link2.txt renamed2.txt
-# root@gcsfuse-override-pod:/content# ls
-# link1.txt  renamed2.txt  target1.txt  target2.txt
-# root@gcsfuse-override-pod:/content# cat target2.txt 
-# hello
-# root@gcsfuse-override-pod:/content# cat renamed2.txt 
-# hello
-# root@gcsfuse-override-pod:/content# exit
-# exit
-```
-
-Kyverno
-
-```bash
-kubectl create -f https://github.com/kyverno/kyverno/releases/download/v1.12.5/install.yaml
-  
-kubectl apply -f Kyverno_gcssidecard_policy.yaml
-
-  Error: failed to reserve container name "gcsfuse-prewarm_samplejob-dtg9v_default_dde4ed2d-6413-4ad9-b13b-3fcaf7f6c711_0": name "gcsfuse-prewarm_samplejob-dtg9v_default_dde4ed2d-6413-4ad9-b13b-3fcaf7f6c711_0" is reserved for "a9b5df6e4529814096e15bb875a1acbcfe737c628ebd2c1ad1e00a42eef791d0"
-
-  --> look like it clashes with the auto-injection done by Autopilot
-```
-
-Load test
-
+This section contains instructions to run a load test.
 ```bash
 sed -e 's/value: "1"/value: "0"/g' -e 's/name: samplejob-$(JOB_INDEX)/name: samplejob-0/g' samplejob.yaml | kubectl apply -f -
 
@@ -95,13 +96,4 @@ kubectl apply -f kyverno-cp-pod.yaml
 ./loadtest.sh 1
 
 ./loadtest.sh 1000
-
-# output
-ducdo@control-tower-25:~/workspaces/gke-gcsfuse
-$ gsutil ls gs://addo-gke-gcsfuse | grep target | wc -l
-100
-ducdo@control-tower-25:~/workspaces/gke-gcsfuse
-$ gsutil ls gs://addo-gke-gcsfuse | grep renamed | wc -l
-100
-
 ```
