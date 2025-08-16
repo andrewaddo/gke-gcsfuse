@@ -83,15 +83,15 @@ kubectl apply -f Kyverno_gcssidecard_policy.yaml
 Load test
 
 ```bash
-sed -e 's/value: "1"/value: "0"/g' -e 's/name: shortlifejob-$(JOB_INDEX)/name: shortlifejob-0/g' shortlifejob.yaml | kubectl apply -f -
+sed -e 's/value: "1"/value: "0"/g' -e 's/name: shortlifejob-$(JOB_INDEX)/name: shortlifejob-0/g' samplejob.yaml | kubectl apply -f -
 
 gsutil rm gs://addo-gke-gcsfuse/*
 kubectl delete ClusterPolicy --all
 kubectl delete jobs --all
 
-kubectl apply -f kyverno_cp_job.yaml
+kubectl apply -f kyverno-cp-job.yaml
 ./loadtest.sh 1
-kubectl apply -f kyverno_cp_pod.yaml
+kubectl apply -f kyverno-cp-pod.yaml
 ./loadtest.sh 1
 
 ./loadtest.sh 1000
