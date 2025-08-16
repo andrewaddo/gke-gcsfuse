@@ -14,10 +14,10 @@ gcloud storage buckets add-iam-policy-binding gs://addo-gke-gcsfuse \
   --member "principal://iam.googleapis.com/projects/827859227929/locations/global/workloadIdentityPools/addo-argolis-demo.svc.id.goog/subject/ns/default/sa/default" \
   --role "roles/storage.objectUser"
 
-## buggypod
+## autopilot-pod
 Image:           asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.14.3-gke.0@sha256:b4e420985f54714e5952ece5da15f19e8b11f47e18cc6fe0a03995bc6a0ae7d3
 
-## poddebugger
+## override-gcsfuse-pod
 Image:           gcr.io/gke-release/gcs-fuse-csi-driver-sidecar-mounter:v1.8.9-gke.2
 ```
 
@@ -33,10 +33,10 @@ gcloud container clusters update ap-cluster-1 \
     --update-addons GcsFuseCsiDriver=ENABLED \
     --location=asia-southeast1
 
-kubectl exec -it gcsfuse-buggypod -- /bin/sh
+kubectl exec -it gcsfuse-autopilot-pod -- /bin/sh
 
 # ducdo@control-tower-25:~/workspaces/gke-gcsfuse
-# $ kubectl exec -it gcsfuse-buggypod -- /bin/sh
+# $ kubectl exec -it gcsfuse-autopilot-pod -- /bin/sh
 # Defaulted container "prewarm-inodes" out of: prewarm-inodes, gke-gcsfuse-sidecar (init)
 # / # ls
 # bin      content  dev      etc      home     lib      lib64    proc     root     sys      tmp      usr      var
@@ -47,24 +47,24 @@ kubectl exec -it gcsfuse-buggypod -- /bin/sh
 # mv: can't rename 'link1.txt': Input/output error
 # /content # exit
 
-kubectl exec -it gcsfuse-debugger -- /bin/bash
+kubectl exec -it gcsfuse-override-pod -- /bin/bash
 
 # ducdo@control-tower-25:~/workspaces/gke-gcsfuse
-# $ kubectl exec -it gcsfuse-debugger -- /bin/bash
+# $ kubectl exec -it gcsfuse-override-pod -- /bin/bash
 # Defaulted container "shell" out of: shell, gke-gcsfuse-sidecar (init), prewarm-inodes (init)
-# root@gcsfuse-debugger:/# ls 
+# root@gcsfuse-override-pod:/# ls 
 # bin  boot  content  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var
-# root@gcsfuse-debugger:/# cd content/
-# root@gcsfuse-debugger:/content# echo "hello" > target2.txt
-# root@gcsfuse-debugger:/content# ln -s target2.txt link2.txt
-# root@gcsfuse-debugger:/content# mv link2.txt renamed2.txt
-# root@gcsfuse-debugger:/content# ls
+# root@gcsfuse-override-pod:/# cd content/
+# root@gcsfuse-override-pod:/content# echo "hello" > target2.txt
+# root@gcsfuse-override-pod:/content# ln -s target2.txt link2.txt
+# root@gcsfuse-override-pod:/content# mv link2.txt renamed2.txt
+# root@gcsfuse-override-pod:/content# ls
 # link1.txt  renamed2.txt  target1.txt  target2.txt
-# root@gcsfuse-debugger:/content# cat target2.txt 
+# root@gcsfuse-override-pod:/content# cat target2.txt 
 # hello
-# root@gcsfuse-debugger:/content# cat renamed2.txt 
+# root@gcsfuse-override-pod:/content# cat renamed2.txt 
 # hello
-# root@gcsfuse-debugger:/content# exit
+# root@gcsfuse-override-pod:/content# exit
 # exit
 ```
 
